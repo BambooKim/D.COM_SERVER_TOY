@@ -14,6 +14,7 @@ exports.SendPush = (req, res) => {
 
     const pushTitle = req.body.pushTitle
     const pushBody = req.body.pushBody
+    const senderToken = req.body.senderToken
 
     const TokenDBRef = async () => {
         try {
@@ -50,18 +51,21 @@ exports.SendPush = (req, res) => {
                     android: {
                         notification: {
                             click_action:"OPEN_MSG_ACTIVITY",
-                            color:"#5BC2E7"
-                        }
+                            color:"#5BC2E7",
+                            icon:"ic_launcher"
+                        },
+                        priority:"high"
                     },
                     token: fcm_target_token
                 }
     
                 admin.messaging().send(fcm_message)
                 .then(response => {
-                    console.log("보내기 성공, 메시지 : " + response)
+                    console.log(`보내기 성공\n\tFrom : ${senderToken}\n\tTo : ${fcm_target_token}`)
                 })
                 .catch(err => {
                     console.log("보내기 실패, 메시지 : " + err)
+                    console.log("\tFrom : " + ",\n\tTo : " + fcm_target_token)
                 })
             }
 
