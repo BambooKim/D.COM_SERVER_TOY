@@ -6,12 +6,14 @@ exports.Login = (req, res) => {
 
     const user_id = req.body.user_id
     const user_pw = req.body.user_pw
+    const token = req.body.token
 
     const UserCheck = async () => {
         try {
             const connection = await pool.getConnection(async conn => conn)
+            connection.release()
             try {
-                const [rows] = await connection.query("SELECT * FROM members WHERE user_id = ?", [user_id])
+                const [rows] = await connection.query("SELECT * FROM members WHERE UserId = ?", [user_id])
                 if (!rows[0]) {
                     return Promise.reject({
                         code: "no_user",
@@ -39,7 +41,7 @@ exports.Login = (req, res) => {
 
         return new Promise((resolve, reject) => {
             try {
-                flag = user.user_pw == user_pw
+                flag = user.Password == user_pw
                 console.log(flag)
 
                 if (flag) {
@@ -58,9 +60,38 @@ exports.Login = (req, res) => {
         })
     }
 
+    const TokenProcess = async () => {
+        if (token !== "") {
+            console.log(user_id + " : " + token)
+            try {
+                const connection = await pool.getConnection(async conn => conn)
+                try {
+                    const result = await connection.query("INSERT INTO token (UserId, Token) VALUES (?, ?)", [user_id, token])
+                    connection.release()
+                    return Promise.resolve()
+                } catch (err) {
+                    console.log(err)
+                    return Promise.reject({
+                        code:'database_error',
+                        message:'Database error'
+                    })
+                }
+            } catch (err) {
+                console.log(err)
+                return Promise.reject({
+                    code:'database_error',
+                    message:'Database error'
+                })
+            }
+        } else {
+            return Promise.resolve()
+        }
+    }
+
     setTimeout(() => {
         UserCheck()
         .then(PWCheck)
+        .then(TokenProcess)
         .then(() => {
             console.log("Login Success")
             res.send("Login Success")
@@ -71,7 +102,5 @@ exports.Login = (req, res) => {
             res.send("Login Fail")
             res.end()
         })
-    }, 3000)
-
-
+    }, 1000)
 }
