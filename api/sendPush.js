@@ -16,13 +16,16 @@ exports.SendPush = (req, res) => {
     const pushBody = req.body.pushBody
     const senderToken = req.body.senderToken
 
-    const TokenDBRef = async () => {
+    const MembersDBRef = async () => {
         try {
             const connection = await pool.getConnection(async conn => conn)
             try {
-                const [rows] = await connection.query("SELECT * FROM token")
+                const [rows] = await connection.query("SELECT Name FROM token where Token=?", [senderToken])
+                connection.release()
 
-                return Promise.resolve(rows)
+                const senderName = rows[0].Name
+
+                return Promise.resolve(senderName)
             } catch (err) {
                 console.log(err)
                 return Promise.reject()
@@ -33,16 +36,42 @@ exports.SendPush = (req, res) => {
         }
     }
 
-    const SendProcess = (rows) => {
+    const TokenDBRef = async (senderName) => {
+        try {
+            const connection = await pool.getConnection(async conn => conn)
+            try {
+                const [rows] = await connection.query("SELECT * FROM token")
+
+                const payload = {
+                    rows: rows,
+                    senderName: senderName
+                }
+
+                return Promise.resolve(payload)
+            } catch (err) {
+                console.log(err)
+                return Promise.reject()
+            }
+        } catch (err) {
+            console.log(err)
+            return Promise.reject()
+        }
+    }
+
+    const SendProcess = (payload) => {
+        const rows = payload.rows
+        const senderName = payload.senderName
+        
         len = rows.length
 
         try {
             for (i = 0; i < len; i++) {
                 const fcm_target_token = rows[i].Token
                 const fcm_message = {
-                    data: {
+                    data: {     
                         title: pushTitle,
                         message: pushBody,
+                        senderName: senderName,
                     }, 
                     notification: {
                         title: pushTitle,
@@ -88,7 +117,8 @@ exports.SendPush = (req, res) => {
         }
     }
 
-    TokenDBRef()
+    MembersDBRef()
+    .then(TokenDBRef)
     .then(SendProcess)
     .then(sendRes)
     .catch()

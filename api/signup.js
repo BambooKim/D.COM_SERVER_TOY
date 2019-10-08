@@ -1,4 +1,5 @@
 const pool = require("../pool")
+const crypto = require("crypto")
 
 exports.Signup = (req, res) => {
     console.log("Who get in here post /signup")
@@ -43,14 +44,27 @@ exports.Signup = (req, res) => {
     }
 
     const Create = async () => {
-        const doCreate = async () => {
-            try {
-                const connection = await pool.getConnection(async conn => conn)
+        crypto.randomBytes(64, (err, buf) => {
+            if (err) throw err
+            
+            let salt = buf.toString("base64")
+            let key = crypto.pbkdf2Sync(pw, salt, Number(process.env.CRYPTO_ITERATION), 64, "sha512")
+            let derivedKey = key.toString("base64")
+            const doCreate = async () => {
                 try {
-                    $query = "INSERT INTO members (Name, NumId, Department, UserId, Password, email) VALUES (?, ?, ?, ?, ?, ?)"
-                    const result = await connection.query($query, [name, numId, dept, userId, pw, email])
-                    connection.release()
-                    return Promise.resolve()
+                    const connection = await pool.getConnection(async conn => conn)
+                    try {
+                        $query = "INSERT INTO members (Name, NumId, Department, UserId, Password, PwSalt, email, created) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())"
+                        const result = await connection.query($query, [name, numId, dept, userId, derivedKey, salt, email])
+                        connection.release()
+                        return Promise.resolve()
+                    } catch (err) {
+                        console.log(err)
+                        return Promise.reject({
+                            code:'database_error',
+                            message:'Database error'
+                        })
+                    }
                 } catch (err) {
                     console.log(err)
                     return Promise.reject({
@@ -58,16 +72,9 @@ exports.Signup = (req, res) => {
                         message:'Database error'
                     })
                 }
-            } catch (err) {
-                console.log(err)
-                return Promise.reject({
-                    code:'database_error',
-                    message:'Database error'
-                })
             }
-        }
-
-        doCreate()
+            doCreate()
+        })
     }
 
     UserCheck()

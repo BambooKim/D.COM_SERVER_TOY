@@ -41,17 +41,20 @@ exports.Login = (req, res) => {
 
         return new Promise((resolve, reject) => {
             try {
-                flag = user.Password == user_pw
-                console.log(flag)
+                crypto.pbkdf2(user_pw, user.PwSalt, Number(process.env.CRYPTO_ITERATION), 64, "sha512", (err, derivedKey) => {
+                    if (err) throw err
 
-                if (flag) {
-                    resolve(true)
-                } else {
-                    reject({
-                        code:'password_error',
-                        message:'Password is wrong',
-                    })
-                }
+                    if (derivedKey.toString("base64") === user.Password) {
+                        console.log("Password Matches")
+                        resolve(user)
+                    } else {
+                        console.log("Password MisMatches")
+                        reject({
+                            code:'password_error',
+                            message:'Password is wrong',
+                        })
+                    }
+                })
             } catch (err) {
                 console.log(err)
             
@@ -60,13 +63,14 @@ exports.Login = (req, res) => {
         })
     }
 
-    const TokenProcess = async () => {
+    const TokenProcess = async (user) => {
+        let name = user.Name
         if (token !== "") {
-            console.log(user_id + " : " + token)
+            console.log(name + ", " + user_id + " : " + token)
             try {
                 const connection = await pool.getConnection(async conn => conn)
                 try {
-                    const result = await connection.query("INSERT INTO token (UserId, Token) VALUES (?, ?)", [user_id, token])
+                    const result = await connection.query("INSERT INTO token (Name, UserId, Token) VALUES (?, ?, ?)", [name, user_id, token])
                     connection.release()
                     return Promise.resolve()
                 } catch (err) {
